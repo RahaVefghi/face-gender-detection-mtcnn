@@ -28,23 +28,37 @@ def extract_face(detector, img):
     except Exception:
         return None
 
-def load_dataset():
+def load_dataset(max_samples_per_class=None):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     dataset_dir = os.path.join(base_dir, "gender_dataset")
-    files = glob.glob(os.path.join(dataset_dir, "*", "*"))
+    fallback_dir = r"D:\ML\iris dataset\gender_detection\gender_dataset"
 
-    if len(files) == 0:
+    if not os.path.exists(dataset_dir) and os.path.exists(fallback_dir):
+        dataset_dir = fallback_dir
+
+    men_files = glob.glob(os.path.join(dataset_dir, "men", "*"))
+    women_files = glob.glob(os.path.join(dataset_dir, "women", "*"))
+
+    if len(men_files) == 0 and len(women_files) == 0:
         print(f"[WARNING] No dataset found in '{dataset_dir}'.")
         print("Please place the 'gender_dataset' folder containing class subfolders to train.")
         return None, None, None, None
 
+    if max_samples_per_class is not None:
+        np.random.seed(42)
+        men_files = list(np.random.choice(men_files, min(len(men_files), max_samples_per_class), replace=False))
+        women_files = list(np.random.choice(women_files, min(len(women_files), max_samples_per_class), replace=False))
+
+    all_files = [(f, "men") for f in men_files] + [(f, "women") for f in women_files]
+    np.random.shuffle(all_files)
+
     detector = MTCNN()
     data = []
     labels = []
-    total = len(files)
-    print(f"[INFO] Detecting faces and loading {total} images...")
+    total = len(all_files)
+    print(f"[INFO] Detecting faces and loading {total} images ({len(men_files)} Men, {len(women_files)} Women)...")
 
-    for i, file_path in enumerate(files):
+    for i, (file_path, label) in enumerate(all_files):
         img = cv2.imread(file_path)
         face = extract_face(detector, img)
         if face is None:
@@ -54,15 +68,14 @@ def load_dataset():
         normalized_features = (face_resized / 255.0).flatten()
 
         data.append(normalized_features)
-        label = os.path.basename(os.path.dirname(file_path))
         labels.append(label)
 
         if (i + 1) % 100 == 0 or (i + 1) == total:
-            print(f"[INFO] {i + 1}/{total} images processed")
+            print(f"[INFO] {i + 1}/{total} images processed (faces extracted: {len(data)})")
 
     data_arr = np.array(data)
     labels_arr = np.array(labels)
-    return train_test_split(data_arr, labels_arr, test_size=0.2, random_state=42)
+    return train_test_split(data_arr, labels_arr, test_size=0.2, random_state=42, stratify=labels_arr)
 
 def train_and_save_model(x_train, x_test, y_train, y_test):
     print(f"[INFO] Training SGDClassifier on {len(x_train)} samples...")
@@ -79,6 +92,7 @@ def train_and_save_model(x_train, x_test, y_train, y_test):
     print(f"[INFO] Model successfully saved to {model_save_path}")
 
 if __name__ == "__main__":
-    x_train, x_test, y_train, y_test = load_dataset()
+    # Loads all ~3,300 images from the dataset as in the original code
+    x_train, x_test, y_train, y_test = load_dataset(max_samples_per_class=None)
     if x_train is not None and len(x_train) > 0:
         train_and_save_model(x_train, x_test, y_train, y_test)
