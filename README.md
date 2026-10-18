@@ -1,27 +1,26 @@
-# Face & Gender Detection System with MTCNN & ML
-### سیستم تشخیص چهره و جنسیت با MTCNN و الگوریتم‌های یادگیری ماشین
+# Face & Gender Detection System with MTCNN & Machine Learning
 
 > 🎓 **Academic Note:** This project was developed as a practical assignment for the **Machine Learning & Deep Learning Course** to explore deep face detection models (MTCNN), facial region extraction, and lightweight classification algorithms.
 
 ---
 
-## 📌 Project Overview (معرفی پروژه)
+## 📌 Project Overview
 
-تشخیص ویژگی‌های چهره (مانند جنسیت، سن یا احساسات) یکی از حوزه‌های پرکاربرد بینایی ماشین و هوش مصنوعی است. این پروژه یک پایپ‌لاین دومرحله‌ای برای شناسایی چهره در تصویر و سپس طبقه‌بندی جنسیت (مرد/زن) ارائه می‌دهد:
+Facial attribute analysis is a cornerstone of modern computer vision applications. This project implements a modular, two-stage vision pipeline that detects faces in unconstrained images and subsequently classifies each detected face by gender (`men` vs. `women`):
 
-1. **تشخیص و استخراج چهره با MTCNN:**
-   - استفاده از شبکه عمیق **Multi-task Cascaded Convolutional Networks (MTCNN)** جهت شناسایی چهره و لندمارک‌های صورت با دقت بالا در زوایای مختلف.
-   - برش خودکار محدوده چهره (Crop) و بررسی اعتبارسنجی مختصات جهت جلوگیری از مقادیر منفی.
-2. **پیش‌پردازش و طبقه‌بندی جنسیت:**
-   - تغییر اندازه تصویر چهره به ابعاد استاندارد `32x32` و نرمال‌سازی مقادیر پیکسل بین ۰ و ۱.
-   - آموزش دسته‌بند سریع و بهینه **SGDClassifier (Stochastic Gradient Descent)** برای تفکیک جنسیت.
-   - سریال‌سازی و ذخیره مدل با کتابخانه `joblib`.
-3. **نمایش بلادرنگ (Inference & Visualization):**
-   - رسم کادر احاطه‌کننده (Bounding Box) با رنگ‌های تفکیک‌شده و برچسب‌گذاری مرد (`men`) / زن (`women`) روی تصویر خروجی در OpenCV.
+1. **Robust Face Detection via MTCNN:**
+   - Deep **Multi-task Cascaded Convolutional Networks (MTCNN)** localize faces across varied poses, lighting conditions, and scales.
+   - Automatic bounding box coordinate validation prevents negative coordinate slicing errors.
+2. **Preprocessing & Gender Classification:**
+   - Face crops are standardized to $32 \times 32$ pixels and normalized to the $[0, 1]$ floating-point range.
+   - An optimized **SGDClassifier (Stochastic Gradient Descent with linear SVM/log loss)** provides lightweight, lightning-fast inference suitable for embedded edge devices.
+   - Model persistence using `joblib` serialization (`gender_classification.z`).
+3. **Real-Time Visual Overlay:**
+   - OpenCV overlays bounding boxes and gender labels onto image frames with proper color indication.
 
 ---
 
-## 🏗️ Pipeline Flow (جریان پردازش)
+## 🏗️ Pipeline Flow
 
 ```mermaid
 flowchart LR
@@ -34,45 +33,51 @@ flowchart LR
 
 ---
 
-## 📂 Project Structure (ساختار فایل‌ها)
+## 📂 Project Structure
 
 ```text
 face-gender-detection-mtcnn/
 │
-├── gender_detector_model.py   # اسکریپت استنتاج و تشخیص جنسیت روی تصاویر ورودی
-├── training.py                # اسکریپت استخراج چهره‌ها از دیتاست و آموزش مدل
-├── test_model/                # مجموعه‌ای از تصاویر تستی جهت ارزیابی کارایی مدل
-├── requirements.txt           # کتابخانه‌های مورد نیاز
-├── .gitignore                 # فایل‌های نادیده گرفته‌شده توسط گیت
-└── README.md                  # مستندات پروژه
+├── gender_detector_model.py   # Inference script: Detects faces and predicts gender on test images
+├── training.py                # Pipeline script: Detects faces from dataset and trains the classifier
+├── test_model/                # Diverse test images for immediate evaluation
+├── requirements.txt           # Project dependencies
+├── .gitignore                 # Files excluded from version control
+└── README.md                  # Project documentation
 ```
 
 ---
 
-## ⚙️ Installation & Usage (نحوه نصب و اجرا)
+## ⚙️ Installation & Usage
 
-### ۱. نصب پیش‌نیازها
+### 1. Clone the repository
+```bash
+git clone https://github.com/RahaVefghi/face-gender-detection-mtcnn.git
+cd face-gender-detection-mtcnn
+```
+
+### 2. Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### ۲. اجرای تست و تشخیص روی نمونه‌ها
-برای ارزیابی مدل روی نمونه‌های تستی موجود در پوشه `test_model/`:
+### 3. Run inference on test images
+Run the model across test images in `test_model/`:
 ```bash
 python gender_detector_model.py
 ```
 
-### ۳. آموزش مجدد مدل
-در صورت داشتن دیتاست کامل، می‌توانید مدل را مجدداً آموزش دهید:
+### 4. Retrain the model on your dataset
+To train the classifier on your dataset (structured with `Men` and `Women` subfolders):
 ```bash
 python training.py
 ```
 
 ---
 
-## 🛠️ Technologies Used (فناوری‌های به‌کار رفته)
+## 🛠️ Technologies Used
 - **Python 3.10+**
-- **MTCNN (Multi-task Cascaded CNN):** Face Detection
-- **OpenCV (cv2):** Image Processing & GUI
-- **Scikit-Learn:** SGD Classifier & Model Evaluation
-- **Joblib:** Model Persistence & Serialization
+- **MTCNN (Multi-task Cascaded CNN):** Deep facial detection and landmark extraction
+- **OpenCV (cv2):** Image manipulation, scaling, and visualization overlays
+- **Scikit-Learn:** SGDClassifier, metric evaluation, train/test split
+- **Joblib:** Lightweight model persistence
