@@ -1,83 +1,83 @@
 import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
-
+import glob
 import cv2
 import numpy as np
-import glob
 from mtcnn import MTCNN
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import SGDClassifier
-from sklearn.metrics import accuracy_score
 from joblib import load
 
-detector = MTCNN()
-
-base_dir = os.path.dirname(os.path.abspath(__file__))
-model_path = os.path.join(base_dir, "gender_classification.z")
-
-if not os.path.exists(model_path):
-    print(f"[ERROR] Model file '{model_path}' not found. Please train the model with training.py first.")
-    exit(1)
-
-clf = load(model_path)
-
-def face_detector(img):
-    try: 
-        
-        # if img is None:   
-        #     return None
-        
-
+def detect_face(detector, img):
+    if img is None:
+        return None, None
+    try:
         rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        results = detector.detect_faces(rgb_img)
+        if len(results) == 0:
+            return None, None
 
-        results = detector.detect_faces(rgb_img)[0]
+        x, y, w, h = results[0]["box"]
+        x, y = max(0, x), max(0, y)
+        face_crop = img[y:y + h, x:x + w]
+        if face_crop.size == 0:
+            return None, None
+        return face_crop, (x, y, w, h)
+    except Exception:
+        return None, None
 
-        # # اگر چهره‌ای پیدا نشد
-        # if len(results) == 0:
-        #     return None
+def run_inference():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    model_path = os.path.join(base_dir, "gender_classification.z")
+    test_dir = os.path.join(base_dir, "test_model")
 
-        x, y, w, h = results["box"]
-        cv2.rectangle(img, (x,y),(x+w, y+h),(0, 255, 0),2)
+    if not os.path.exists(model_path):
+        print(f"[ERROR] Trained model file '{model_path}' not found.")
+        print("Please train the model first by running training.py.")
+        return
 
-        # جلوگیری از منفی شدن مختصات
-        x = max(0, x)
-        y = max(0, y)
+    test_files = glob.glob(os.path.join(test_dir, "*"))
+    if len(test_files) == 0:
+        print(f"[ERROR] No test images found in '{test_dir}'.")
+        return
 
-        return img[y:y+h, x:x+w], img, x , y, w, h
-    except:
-        pass
+    print(f"[INFO] Loading MTCNN face detector and trained model from {model_path}...")
+    detector = MTCNN()
+    clf = load(model_path)
+    print(f"[INFO] Evaluating {len(test_files)} test images. Press any key to see next, or 'q' to quit.\n")
 
-test_dir = os.path.join(base_dir, "test_model")
-for i, item in enumerate(glob.glob(os.path.join(test_dir, "*"))):
+    for file_path in test_files:
+        img = cv2.imread(file_path)
+        if img is None:
+            continue
 
-    img = cv2.imread(item)
-    
+        face_crop, bbox = detect_face(detector, img)
+        if face_crop is None:
+            print(f"Sample: {os.path.basename(file_path):<30} -> No face detected.")
+            continue
 
-    face, x, y, w, h = face_detector(img)
+        x, y, w, h = bbox
+        resized = cv2.resize(face_crop, (32, 32))
+        features = (resized / 255.0).flatten().reshape(1, -1)
 
-    if face is None:
-        continue
-    
-    face = cv2.resize(face, (32, 32))
-    face = face.flatten()
-    face = face/255
-    
-    out = clf.predict(np.array(face))[0]
-    if out =="men":
-      cv2.rectangle(img, (x,y),(x+w, y+h),(0, 0, 255),2)
-      cv2.putText("men",(x, y-10), cv2.FONT_HERSHEY_PLAIN, 1.2, (0, 255, 0), 2)
-    
-    elif out =="women":
-      cv2.rectangle(img, (x,y),(x+w, y+h),(0, 255, 0),2)
-      cv2.putText("women",(x, y-10), cv2.FONT_HERSHEY_PLAIN, 1.2, (0, 255, 0), 2)
+        predicted_gender = clf.predict(features)[0]
+        color = (255, 105, 180) if "women" in str(predicted_gender).lower() else (0, 255, 0)
 
-      
-    cv2.imshow("image",img)
-    cv2.waitKey(0)
-    
-cv2.destroyAllWindows()    
-    
+        # Draw bounding box and label
+        cv2.rectangle(img, (x, y), (x + w, y + h), color, 2)
+        cv2.rectangle(img, (x, max(0, y - 30)), (x + w, y), color, -1)
+        cv2.putText(
+            img, str(predicted_gender).capitalize(),
+            (x + 5, y - 8),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2
+        )
 
+        print(f"Sample: {os.path.basename(file_path):<30} -> Predicted: {predicted_gender}")
+        cv2.imshow("Face & Gender Detection", img)
+        key = cv2.waitKey(0)
+        if key == ord('q') or key == 27:
+            break
 
-  
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    run_inference()
